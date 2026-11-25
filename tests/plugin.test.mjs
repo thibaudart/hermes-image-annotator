@@ -30,7 +30,9 @@ async function loadPlugin(host = sdk.host, withLightbox = true) {
     if (specifier === 'react/jsx-runtime') {
       return { url: toModule('export const jsx = globalThis.__annotatorTestJsx; export const jsxs = jsx;'), shortCircuit: true }
     }
-    return next(specifier, context)
+    const resolution = next(specifier, context)
+    // Desktop loads this disk entry as ESM regardless of nearby package.json.
+    return resolution.url.startsWith(`${pluginUrl.href}?`) ? { ...resolution, format: 'module' } : resolution
   } })
   try { return (await import(`${pluginUrl.href}?case=${++load}`)).default }
   finally {
@@ -113,4 +115,64 @@ test('closing during a pending decode releases the bitmap and does not reopen th
   await pending
   assert.equal(closed, true)
   assert.equal(h.render(), null)
+})
+
+function button(h, label) {
+  return nodes(h.render(), node => node.type === 'Button' && node.props.children === label)[0].props
+}
+
+async function drawDot(t, h, draft) {
+  useDecoder(t, async () => ({ width: 160, height: 100, close() {} }))
+  let reads = 0
+  await h.select({ draft, readImage: () => { reads++; return Promise.resolve(image) } })
+  assert.equal(reads, 1)
+  const control = nodes(h.render(), el => el.type === 'canvas')[0].props
+  const png = new Blob(['canvas output'], { type: 'image/png' })
+  control.ref({
+    width: 160, height: 100,
+    getBoundingClientRect: () => ({ width: 160, height: 100, left: 0, top: 0 }),
+    setPointerCapture() {},
+    getContext: () => ({ clearRect() {}, drawImage() {}, beginPath() {}, arc() {}, fill() {}, moveTo() {}, lineTo() {}, stroke() {} }),
+    toBlob(callback, type) { assert.equal(type, 'image/png'); callback(png) }
+  })
+  const dot = { pointerId: 1, button: 0, clientX: 12, clientY: 26 }
+  control.onPointerDown(dot)
+  control.onPointerUp(dot)
+  return png
+}
+
+test('submits one PNG with the exact originating draft handle and closes only on true', async t => {
+  let complete
+  const ack = new Promise(resolve => { complete = resolve })
+  const calls = []
+  const h = await harness({ attachImage: (...args) => { calls.push(args); return ack } })
+  const draft = Object.freeze({})
+  const png = await drawDot(t, h, draft)
+  const attach = button(h, 'add').onClick
+  const pending = attach()
+  await attach() // A rapid second click must not stage a second file.
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0][0], draft)
+  assert.equal(calls[0][1], png)
+  assert.deepEqual(calls[0][2], { filename: 'annotated-image.png' })
+  complete(true)
+  await pending
+  assert.equal(h.render(), null)
+})
+
+test('a non-true attachment result does not retarget or report success', async t => {
+  let calls = 0
+  const draft = Object.freeze({})
+  const h = await harness({ attachImage: address => {
+    assert.equal(address, draft)
+    calls++
+    return calls === 1 ? false : { unexpected: 'non-boolean result' }
+  } })
+  await drawDot(t, h, draft)
+  await button(h, 'add').onClick()
+  assert.equal(hasText(h.render(), 'attachError'), true)
+  assert.equal(calls, 1)
+  await button(h, 'add').onClick()
+  assert.equal(hasText(h.render(), 'attachError'), true)
+  assert.equal(calls, 2)
 })

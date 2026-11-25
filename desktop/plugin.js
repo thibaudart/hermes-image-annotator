@@ -139,7 +139,7 @@ function createEditor(draft, brush, dismiss) {
       let attached = false
       try { attached = await host.composer.attachImage(draft, png, { filename: 'annotated-image.png' }) } catch { /* fail closed */ }
       if (closed) return
-      if (attached) dismiss()
+      if (attached === true) dismiss()
       else update({ busy: false, status: 'attachError' })
     },
     dispose() {
