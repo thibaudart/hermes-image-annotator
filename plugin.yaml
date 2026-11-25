@@ -1,0 +1,7 @@
+name: image-annotator
+version: "0.2.0-alpha.1"
+label: Image Annotator
+description: Annotate a selected chat image locally and stage a PNG on the originating reply draft.
+license: MIT
+# Pre-release: no shipped Hermes release has both required Desktop SDK seams.
+# Set requires_hermes only when the first such release can be verified.

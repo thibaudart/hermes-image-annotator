@@ -2,29 +2,22 @@
 
 [Documentation en français](README.fr.md)
 
-Draw on a supported image in a Hermes Desktop conversation and export a PNG copy. The original image and the chat draft stay unchanged. Nothing is sent automatically.
+Draw on a supported chat image and stage an annotated PNG in the same conversation's reply draft. The original image and draft text stay unchanged. Nothing is sent until you send the reply yourself.
 
-## Install locally
+**SDK prerelease (`0.2.0-alpha.1`).** This unified package is not in the Hermes Catalog and is not intended for currently released Desktop builds. It needs both the proposed transcript-image lightbox action (including `readImage()` and the originating draft handle) and the draft-scoped `host.composer.attachImage` SDK API. See the [compatibility and catalog status](docs/catalog.md) and [isolated test instructions](tests/README.md). The `main` branch carries the separate standalone PNG-download prototype; it is not part of this package.
 
-1. Download [`plugin.js`](plugin.js) from this repository.
-2. Save it as `$HERMES_HOME/desktop-plugins/image-annotator/plugin.js`. The default Hermes home is `~/.hermes` on macOS and Linux, or `%USERPROFILE%\.hermes` on Windows.
-3. Hermes Desktop detects the plugin. If it doesn't appear, open the command palette (`⌘K` on macOS, `Ctrl+K` on Windows/Linux) and run **Reload desktop plugins**.
+## Use on a compatible candidate build
 
-No build step, packages, or API keys are required. This plugin is for **Hermes Desktop**, not the CLI. To uninstall, remove the `image-annotator` folder and reload desktop plugins.
+1. In an isolated Hermes home, place the unified package under `$HERMES_HOME/plugins/image-annotator/`, with `plugin.yaml`, `__init__.py` and `desktop/plugin.js` in their original locations. In **Capabilities → Plugins**, enable the package's **Desktop** switch. The Agent half is an inert shim and need not be enabled.
+2. Open an eligible **image in a chat transcript** and click **Annotate** in the viewer. Choose a color and marker width, then draw on the copy. **Undo stroke** removes the last stroke; **Cancel** or **Esc** discards the editor without attaching.
+3. Click **Attach to reply**. Hermes stages the PNG locally on the original draft using its normal attachment validation. If the original draft is no longer available, the operation fails rather than attaching to another chat.
 
-## Use it
+The UI follows Desktop's language (English or French; other locales fall back to English). Only images the SDK can supply as already-loaded renderer bytes are eligible. Images may be reduced to at most 4,096 pixels on the longest side and 12 megapixels; animated images become a still PNG. The encoded PNG must fit Hermes's 16 MiB attachment limit.
 
-1. Click an image in the conversation to open the image viewer, then click **Annotate**.
-2. Choose the marker color and width, and draw directly on the image.
-3. Click **Save PNG**, then choose where to save the copy. To reply with it, attach it using Hermes Desktop's **+** menu or drag the saved file into the draft.
+## Privacy and permissions
 
-Use **Undo stroke** to remove the last stroke, or **Esc** to leave the editor. The plugin UI follows Hermes Desktop's language in English or French.
+- Reads only the selected image, through the Desktop SDK, after you click **Annotate**. Draws and encodes locally. It does not look up other messages, read source paths or refetch URLs.
+- Its only write to Hermes is the PNG attachment you explicitly request. Hermes stages the bytes in its local composer storage; there is no plugin upload or auto-send.
+- No telemetry, external network requests, clipboard access, shell commands, background services, credentials, backend routes, or plugin dependencies. The Python entrypoint registers nothing.
 
-## Compatibility and privacy
-
-- This is the **standalone** build. It was tested on macOS in Hermes Desktop (source revision `caafe5389a`). It uses Desktop's current image viewer markup, which may change after an application update. Other platforms have not been tested.
-- No telemetry, image upload, or access to the system clipboard. Drawing happens locally. The PNG is written only when you save it. For a displayed HTTP(S) image, the editor may retry the same URL without a referrer using an anonymous CORS request. Websites that block image export cannot be annotated by this plugin.
-- Very large images are resized to at most 4,096 pixels on the longest side and about 12 megapixels. Animated images become a still PNG.
-- **Hermes Catalog:** not listed yet. The standalone build uses the app's internal markup to extend the image viewer. Direct attachment to a draft is intentionally disabled until Hermes can target the original draft safely. See [the proposed SDK integration](docs/catalog.md).
-
-[Desktop integration test](tests/README.md) · [MIT License](LICENSE)
+[MIT License](LICENSE)
